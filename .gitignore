@@ -18,3 +18,10 @@ Thumbs.db
 .env.*.local
 ai/.venv/
 ai/.venv-ubuntu/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Audio test files
+*.mp3
