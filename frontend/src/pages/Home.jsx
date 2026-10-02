@@ -10,6 +10,7 @@ import {
     ListMusic,
     Plus,
 } from "lucide-react";
+import AudioPlayer from "react-modern-audio-player";
 import api from "../services/api";
 
 export default function Home() {
@@ -21,10 +22,12 @@ export default function Home() {
 
     const [backendStatus, setBackendStatus] = useState("checking");
     const [loading, setLoading] = useState(false);
+    const [audioLoading, setAudioLoading] = useState(false);
     const [playlistLoading, setPlaylistLoading] = useState(false);
     const [error, setError] = useState("");
 
     const [result, setResult] = useState(null);
+    const [audioUrl, setAudioUrl] = useState("");
     const [menuOpen, setMenuOpen] = useState(false);
     const [playlistModalOpen, setPlaylistModalOpen] = useState(false);
 
@@ -33,6 +36,66 @@ export default function Home() {
         loadUser();
         loadPlaylists();
     }, []);
+
+    useEffect(() => {
+        if (!result?.id) {
+            return;
+        }
+
+        let cancelled = false;
+        let objectUrl = "";
+
+        const loadAudio = async () => {
+            setAudioLoading(true);
+            setError("");
+
+            try {
+                const response = await api.get(
+                    `/downloads/${result.id}/file`,
+                    {
+                        responseType: "blob",
+                    },
+                );
+
+                if (cancelled) {
+                    return;
+                }
+
+                objectUrl = window.URL.createObjectURL(
+                    response.data,
+                );
+
+                setAudioUrl(objectUrl);
+            } catch (err) {
+                if (cancelled) {
+                    return;
+                }
+
+                setAudioUrl("");
+
+                setError(
+                    err?.response?.data?.message ||
+                        "Не удалось загрузить аудио для прослушивания",
+                );
+            } finally {
+                if (!cancelled) {
+                    setAudioLoading(false);
+                }
+            }
+        };
+
+        loadAudio();
+
+        return () => {
+            cancelled = true;
+
+            if (objectUrl) {
+                window.URL.revokeObjectURL(objectUrl);
+            }
+
+            setAudioUrl("");
+        };
+    }, [result?.id]);
 
     const checkBackend = async () => {
         try {
@@ -71,8 +134,10 @@ export default function Home() {
         }
 
         setLoading(true);
+        setAudioLoading(false);
         setError("");
         setResult(null);
+        setAudioUrl("");
 
         try {
             const response = await api.post("/download", {
@@ -94,16 +159,20 @@ export default function Home() {
         try {
             setError("");
 
-            const response = await api.get(
-                `/downloads/${downloadId}/file`,
-                {
-                    responseType: "blob",
-                },
-            );
+            let blobUrl = audioUrl;
 
-            const blobUrl = window.URL.createObjectURL(
-                response.data,
-            );
+            if (!blobUrl) {
+                const response = await api.get(
+                    `/downloads/${downloadId}/file`,
+                    {
+                        responseType: "blob",
+                    },
+                );
+
+                blobUrl = window.URL.createObjectURL(
+                    response.data,
+                );
+            }
 
             const link = document.createElement("a");
 
@@ -114,7 +183,9 @@ export default function Home() {
             link.click();
             link.remove();
 
-            window.URL.revokeObjectURL(blobUrl);
+            if (!audioUrl) {
+                window.URL.revokeObjectURL(blobUrl);
+            }
 
             setUrl("");
         } catch (err) {
@@ -189,6 +260,25 @@ export default function Home() {
         navigate("/login");
     };
 
+    const playerPlaylist =
+        result && audioUrl
+            ? [
+                  {
+                      id: result.id,
+                      src: audioUrl,
+                      name:
+                          result.title ||
+                          result.name ||
+                          "Песня",
+                      writer:
+                          result.artist ||
+                          result.source ||
+                          "",
+                      preload: "metadata",
+                  },
+              ]
+            : [];
+
     return (
         <div className="min-h-screen bg-[var(--color-bg)] text-[var(--color-text)]">
             {/* Header */}
@@ -262,7 +352,6 @@ export default function Home() {
                                 size={20}
                                 strokeWidth={1.5}
                             />
-
                             <span>Главная</span>
                         </Link>
 
@@ -275,7 +364,6 @@ export default function Home() {
                                 size={20}
                                 strokeWidth={1.5}
                             />
-
                             <span>Профиль</span>
                         </Link>
 
@@ -288,7 +376,6 @@ export default function Home() {
                                 size={20}
                                 strokeWidth={1.5}
                             />
-
                             <span>Настройки</span>
                         </Link>
                     </div>
@@ -303,7 +390,6 @@ export default function Home() {
                                 size={20}
                                 strokeWidth={1.5}
                             />
-
                             <span>Выйти</span>
                         </button>
                     </div>
@@ -341,6 +427,7 @@ export default function Home() {
                     )}
 
                     <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-4 sm:p-6">
+                        {/* INPUT + SEARCH — НЕ МЕНЯЛ */}
                         <div className="flex w-full flex-col gap-3 sm:flex-row">
                             <input
                                 type="text"
@@ -363,7 +450,9 @@ export default function Home() {
                                 disabled={loading}
                                 className="box-border h-[50px] min-h-[50px] w-full shrink-0 rounded-none border border-white bg-transparent px-5 text-sm font-semibold leading-none text-white transition-colors hover:border-[var(--color-accent)] disabled:cursor-not-allowed disabled:opacity-50 sm:w-[140px]"
                             >
-                                {loading ? "Поиск..." : "Поиск"}
+                                {loading
+                                    ? "Поиск..."
+                                    : "Поиск"}
                             </button>
                         </div>
 
@@ -374,29 +463,83 @@ export default function Home() {
                         )}
 
                         {result && (
-                            <div className="mt-4 p-4">
-                                <div className="mb-4">
-                                    <div className="text-sm font-semibold text-white">
-                                        {result.title ||
-                                            result.name ||
-                                            "Песня найдена"}
-                                    </div>
-
-                                    {result.artist && (
-                                        <div className="mt-1 text-sm text-[var(--color-text-muted)]">
-                                            {result.artist}
+                            <div className="mt-4">
+                                {/* INFO */}
+                                <div className="border border-white/20 p-4">
+                                    <div className="mb-4">
+                                        <div className="text-sm font-semibold text-white">
+                                            {result.title ||
+                                                result.name ||
+                                                "Песня найдена"}
                                         </div>
-                                    )}
+
+                                        {result.artist && (
+                                            <div className="mt-1 text-sm text-[var(--color-text-muted)]">
+                                                {result.artist}
+                                            </div>
+                                        )}
+
+                                        {result.source && (
+                                            <div className="mt-1 text-xs uppercase tracking-wider text-white/40">
+                                                {result.source}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
 
-                                <div className="flex flex-col gap-3 sm:flex-row">
+                                {/* AUDIO PLAYER — ОТДЕЛЬНЫЙ БЛОК */}
+                                {(audioLoading ||
+                                    audioUrl) && (
+                                    <div className="mt-4 w-full border border-white/20 bg-black">
+                                        {audioLoading && (
+                                            <div className="flex min-h-[100px] items-center justify-center p-4 text-sm text-white/60">
+                                                Загружаем аудио
+                                                для
+                                                прослушивания...
+                                            </div>
+                                        )}
+
+                                        {!audioLoading &&
+                                            audioUrl && (
+                                                <div className="w-full overflow-hidden">
+                                                    <AudioPlayer
+                                                        key={result.id}
+                                                        playList={
+                                                            playerPlaylist
+                                                        }
+                                                        colorScheme="dark"
+                                                        activeUI={{
+                                                            all: true,
+                                                            progress:
+                                                                "waveform",
+                                                        }}
+                                                        audioInitialState={{
+                                                            curPlayId:
+                                                                result.id,
+                                                            volume: 1,
+                                                            isPlaying:
+                                                                false,
+                                                        }}
+                                                    />
+                                                </div>
+                                            )}
+                                    </div>
+                                )}
+
+                                {/* DOWNLOAD + PLAYLIST — НЕ МЕНЯЛ */}
+                                <div className="mt-4 flex flex-col gap-3 sm:flex-row">
                                     {result.id && (
                                         <button
                                             type="button"
                                             onClick={() =>
-                                                handleGetFile(result.id)
+                                                handleGetFile(
+                                                    result.id,
+                                                )
                                             }
-                                            className="rounded-none border border-white bg-transparent px-4 py-2 text-sm font-medium text-white transition-colors hover:border-[var(--color-accent)]"
+                                            disabled={
+                                                audioLoading
+                                            }
+                                            className="rounded-none border border-white bg-transparent px-4 py-2 text-sm font-medium text-white transition-colors hover:border-[var(--color-accent)] disabled:cursor-not-allowed disabled:opacity-50"
                                         >
                                             Скачать
                                         </button>
@@ -405,8 +548,12 @@ export default function Home() {
                                     {result.id && (
                                         <button
                                             type="button"
-                                            onClick={openPlaylistModal}
-                                            disabled={playlistLoading}
+                                            onClick={
+                                                openPlaylistModal
+                                            }
+                                            disabled={
+                                                playlistLoading
+                                            }
                                             className="rounded-none border border-white bg-transparent px-4 py-2 text-sm font-medium text-white transition-colors hover:border-[var(--color-accent)] disabled:cursor-not-allowed disabled:opacity-50"
                                         >
                                             {playlistLoading
@@ -428,7 +575,8 @@ export default function Home() {
                             <div className="mt-2 text-sm font-semibold text-white">
                                 {backendStatus === "online"
                                     ? "Online"
-                                    : backendStatus === "offline"
+                                    : backendStatus ===
+                                        "offline"
                                       ? "Offline"
                                       : "Checking..."}
                             </div>
@@ -461,7 +609,9 @@ export default function Home() {
                 >
                     <div
                         className="w-full max-w-md border border-white/70 bg-[var(--color-bg)] p-6"
-                        onClick={(event) => event.stopPropagation()}
+                        onClick={(event) =>
+                            event.stopPropagation()
+                        }
                     >
                         <div className="mb-6 flex items-center justify-between">
                             <h2 className="text-lg font-semibold uppercase tracking-[0.1em]">
@@ -485,13 +635,16 @@ export default function Home() {
                                 />
 
                                 <p className="text-sm text-white/60">
-                                    У тебя пока нет плейлистов.
+                                    У тебя пока нет
+                                    плейлистов.
                                 </p>
 
                                 <Link
                                     to="/profile"
                                     onClick={() =>
-                                        setPlaylistModalOpen(false)
+                                        setPlaylistModalOpen(
+                                            false,
+                                        )
                                     }
                                     className="mt-5 inline-flex items-center gap-2 border border-white/70 px-4 py-3 text-sm uppercase tracking-[0.08em] text-white no-underline transition hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
                                 >
@@ -510,7 +663,9 @@ export default function Home() {
                                                 playlist.id,
                                             )
                                         }
-                                        disabled={playlistLoading}
+                                        disabled={
+                                            playlistLoading
+                                        }
                                         className="flex w-full items-center gap-4 border border-white/70 bg-transparent p-4 text-left transition hover:border-[var(--color-accent)] disabled:cursor-not-allowed disabled:opacity-50"
                                     >
                                         <div className="flex h-11 w-11 shrink-0 items-center justify-center border border-white/50">
@@ -523,7 +678,8 @@ export default function Home() {
                                             </div>
 
                                             <div className="mt-1 text-xs text-white/40">
-                                                {playlist.downloads_count ?? 0}{" "}
+                                                {playlist.downloads_count ??
+                                                    0}{" "}
                                                 треков
                                             </div>
                                         </div>
