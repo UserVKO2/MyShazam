@@ -10,7 +10,6 @@ from sources.tiktok.downloader import TikTokAdapter
 
 app = FastAPI()
 
-
 # Единая директория, где FastAPI хранит скачанные MP3.
 AUDIO_DIR = Path("/tmp/shazam-audio")
 
@@ -36,20 +35,23 @@ def download_youtube_audio(request: AudioRequest):
     """Скачать аудио с YouTube через YouTubeAdapter."""
 
     try:
-        # Создаём YouTube-адаптер.
         adapter = YouTubeAdapter()
 
-        # Скачиваем аудио.
-        file_path = adapter.download_audio(request.url)
-
-        # Превращаем путь в объект Path.
-        path = Path(file_path)
+        result = adapter.download_audio(request.url)
 
         return {
             "status": "ok",
             "source": "youtube",
-            "file_name": path.name,
-            "file_path": str(path),
+            "file_name": result["file_name"],
+            "file_path": result["file_path"],
+            "title": result["title"],
+            "artist": result["artist"],
+            "uploader": result["uploader"],
+            "channel": result["channel"],
+            "duration": result["duration"],
+            "thumbnail": result["thumbnail"],
+            "webpage_url": result["webpage_url"],
+            "youtube_id": result["youtube_id"],
         }
 
     except Exception as error:
@@ -64,13 +66,10 @@ def download_tiktok_audio(request: AudioRequest):
     """Скачать аудио с TikTok через TikTokAdapter."""
 
     try:
-        # Создаём TikTok-адаптер.
         adapter = TikTokAdapter()
 
-        # Скачиваем аудио.
         file_path = adapter.download_audio(request.url)
 
-        # Превращаем путь в объект Path.
         path = Path(file_path)
 
         return {
@@ -96,11 +95,9 @@ def get_audio_file(file_name: str):
     хочет получить ранее скачанную песню.
     """
 
-    # Создаём путь только внутри AUDIO_DIR.
     file_path = AUDIO_DIR / file_name
 
-    # Проверяем, что файл действительно находится
-    # внутри разрешённой директории.
+    # Проверяем, что путь находится внутри AUDIO_DIR.
     try:
         file_path = file_path.resolve()
         audio_dir = AUDIO_DIR.resolve()
@@ -127,7 +124,6 @@ def get_audio_file(file_name: str):
             detail="Файл не найден",
         )
 
-    # Отправляем MP3 обратно Laravel.
     return FileResponse(
         path=file_path,
         media_type="audio/mpeg",

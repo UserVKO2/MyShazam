@@ -8,8 +8,8 @@ from sources.base import SourceAdapter
 class YouTubeAdapter(SourceAdapter):
     """Adapter для скачивания аудио с YouTube."""
 
-    def download_audio(self, url: str) -> str:
-        """Скачать аудио с YouTube и сохранить его в формате MP3."""
+    def download_audio(self, url: str) -> dict:
+        """Скачать аудио с YouTube и вернуть файл и metadata."""
 
         output_dir = Path("/tmp/shazam-audio")
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -20,7 +20,7 @@ class YouTubeAdapter(SourceAdapter):
             # Выбираем лучшее доступное аудио.
             "format": "bestaudio",
 
-            # Шаблон имени временного файла.
+            # Имя временного файла: YouTube ID + расширение.
             "outtmpl": output_template,
 
             # Не показываем лишний вывод.
@@ -29,7 +29,7 @@ class YouTubeAdapter(SourceAdapter):
             # Не скачиваем плейлист.
             "noplaylist": True,
 
-            # После скачивания конвертируем аудио в MP3.
+            # Конвертируем аудио в MP3.
             "postprocessors": [
                 {
                     "key": "FFmpegExtractAudio",
@@ -42,10 +42,20 @@ class YouTubeAdapter(SourceAdapter):
         with yt_dlp.YoutubeDL(options) as ydl:
             info = ydl.extract_info(url, download=True)
 
-        # Получаем путь к исходному файлу.
-        source_path = Path(ydl.prepare_filename(info))
+            source_path = Path(ydl.prepare_filename(info))
 
         # После FFmpeg расширение меняется на .mp3.
         mp3_path = source_path.with_suffix(".mp3")
 
-        return str(mp3_path)
+        return {
+            "file_path": str(mp3_path),
+            "file_name": mp3_path.name,
+            "title": info.get("title"),
+            "artist": info.get("artist"),
+            "uploader": info.get("uploader"),
+            "channel": info.get("channel"),
+            "duration": info.get("duration"),
+            "thumbnail": info.get("thumbnail"),
+            "webpage_url": info.get("webpage_url"),
+            "youtube_id": info.get("id"),
+        }
