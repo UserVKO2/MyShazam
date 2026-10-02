@@ -1,7 +1,5 @@
-import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
 import {
-    ArrowLeft,
     ListMusic,
     Plus,
     User,
@@ -9,13 +7,14 @@ import {
     Trash2,
     ChevronDown,
     Music,
+    Play,
+    Pause,
+    Download,
 } from 'lucide-react'
 
 import api from '../services/api'
 
 function Profile() {
-    const navigate = useNavigate()
-
     const [user, setUser] = useState(null)
     const [playlists, setPlaylists] = useState([])
 
@@ -30,17 +29,33 @@ function Profile() {
 
     const [error, setError] = useState('')
 
-    // Открытый плейлист
     const [expandedPlaylistId, setExpandedPlaylistId] = useState(null)
-
-    // Треки открытого плейлиста
     const [playlistTracks, setPlaylistTracks] = useState([])
-
-    // Состояние загрузки треков
     const [tracksLoading, setTracksLoading] = useState(false)
+
+    const [playingTrackId, setPlayingTrackId] = useState(null)
+    const [audioLoading, setAudioLoading] = useState(null)
+    const [downloadLoading, setDownloadLoading] = useState(null)
+
+    const [currentTime, setCurrentTime] = useState(0)
+    const [duration, setDuration] = useState(0)
+
+    const audioRef = useRef(null)
+    const audioUrlRef = useRef(null)
 
     useEffect(() => {
         loadProfile()
+
+        return () => {
+            if (audioRef.current) {
+                audioRef.current.pause()
+                audioRef.current.src = ''
+            }
+
+            if (audioUrlRef.current) {
+                URL.revokeObjectURL(audioUrlRef.current)
+            }
+        }
     }, [])
 
     async function loadProfile() {
@@ -68,7 +83,6 @@ function Profile() {
     }
 
     async function handlePlaylistClick(playlistId) {
-        // Если нажали на уже открытый плейлист — закрываем его
         if (expandedPlaylistId === playlistId) {
             setExpandedPlaylistId(null)
             setPlaylistTracks([])
@@ -96,6 +110,198 @@ function Profile() {
         } finally {
             setTracksLoading(false)
         }
+    }
+
+    async function handlePlayTrack(track) {
+        if (!track?.id) {
+            return
+        }
+
+        if (
+            playingTrackId === track.id &&
+            audioRef.current
+        ) {
+            if (audioRef.current.paused) {
+                try {
+                    await audioRef.current.play()
+                } catch (error) {
+                    console.error('Audio resume error:', error)
+                }
+            } else {
+                audioRef.current.pause()
+            }
+
+            return
+        }
+
+        setAudioLoading(track.id)
+        setError('')
+        setCurrentTime(0)
+        setDuration(0)
+
+        try {
+            if (audioRef.current) {
+                audioRef.current.pause()
+                audioRef.current.src = ''
+            }
+
+            if (audioUrlRef.current) {
+                URL.revokeObjectURL(audioUrlRef.current)
+                audioUrlRef.current = null
+            }
+
+            const response = await api.get(
+                `/downloads/${track.id}/file`,
+                {
+                    responseType: 'blob',
+                }
+            )
+
+            const blobUrl = URL.createObjectURL(response.data)
+
+            audioUrlRef.current = blobUrl
+
+            const audio = new Audio(blobUrl)
+
+            audioRef.current = audio
+
+            audio.addEventListener('loadedmetadata', () => {
+                setDuration(audio.duration || 0)
+            })
+
+            audio.addEventListener('timeupdate', () => {
+                setCurrentTime(audio.currentTime || 0)
+            })
+
+            audio.addEventListener('ended', () => {
+                setPlayingTrackId(null)
+                setCurrentTime(0)
+            })
+
+            audio.addEventListener('pause', () => {
+                setPlayingTrackId((currentId) => {
+                    if (currentId === track.id) {
+                        return null
+                    }
+
+                    return currentId
+                })
+            })
+
+            audio.addEventListener('error', () => {
+                setPlayingTrackId(null)
+                setCurrentTime(0)
+                setError('Не удалось воспроизвести этот трек')
+            })
+
+            await audio.play()
+
+            setPlayingTrackId(track.id)
+        } catch (error) {
+            console.error('Track playback error:', error)
+
+            setPlayingTrackId(null)
+
+            setError(
+                error.response?.data?.message ||
+                'Не удалось загрузить аудиофайл'
+            )
+        } finally {
+            setAudioLoading(null)
+        }
+    }
+
+    function handleProgressClick(event) {
+        const audio = audioRef.current
+
+        if (!audio || !duration) {
+            return
+        }
+
+        const rect = event.currentTarget.getBoundingClientRect()
+
+        const clickPosition = event.clientX - rect.left
+
+        const percentage = Math.min(
+            Math.max(clickPosition / rect.width, 0),
+            1
+        )
+
+        audio.currentTime = percentage * duration
+        setCurrentTime(audio.currentTime)
+    }
+
+    async function handleDownloadTrack(track) {
+        if (!track?.id) {
+            return
+        }
+
+        setDownloadLoading(track.id)
+        setError('')
+
+        try {
+            const response = await api.get(
+                `/downloads/${track.id}/file`,
+                {
+                    responseType: 'blob',
+                }
+            )
+
+            const blobUrl = URL.createObjectURL(response.data)
+
+            const link = document.createElement('a')
+
+            link.href = blobUrl
+            link.download = `${track.title || `tynda-${track.id}`}.mp3`
+
+            document.body.appendChild(link)
+            link.click()
+            link.remove()
+
+            URL.revokeObjectURL(blobUrl)
+        } catch (error) {
+            console.error('Track download error:', error)
+
+            setError(
+                error.response?.data?.message ||
+                'Не удалось скачать трек'
+            )
+        } finally {
+            setDownloadLoading(null)
+        }
+    }
+
+    function isTrackPlaying(trackId) {
+        return (
+            playingTrackId === trackId &&
+            audioRef.current &&
+            !audioRef.current.paused
+        )
+    }
+
+    function formatTime(time) {
+        if (!Number.isFinite(time) || time < 0) {
+            return '0:00'
+        }
+
+        const minutes = Math.floor(time / 60)
+        const seconds = Math.floor(time % 60)
+
+        return `${minutes}:${String(seconds).padStart(2, '0')}`
+    }
+
+    function getProgressPercentage(trackId) {
+        if (
+            playingTrackId !== trackId ||
+            !duration
+        ) {
+            return 0
+        }
+
+        return Math.min(
+            Math.max((currentTime / duration) * 100, 0),
+            100
+        )
     }
 
     async function handleCreatePlaylist(event) {
@@ -205,24 +411,6 @@ function Profile() {
         <main className="min-h-screen bg-[var(--color-bg)] text-white">
             <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6">
 
-                {/* Header */}
-                <header className="mb-8 flex items-center justify-between border-b border-white/20 pb-5">
-                    <button
-                        type="button"
-                        onClick={() => navigate('/')}
-                        className="flex h-11 w-11 items-center justify-center border border-white/70 bg-transparent transition hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
-                        aria-label="Назад"
-                    >
-                        <ArrowLeft size={20} />
-                    </button>
-
-                    <h1 className="text-lg font-semibold uppercase tracking-[0.2em]">
-                        Профиль
-                    </h1>
-
-                    <div className="h-11 w-11" />
-                </header>
-
                 {/* Error */}
                 {error && (
                     <div className="mb-6 border border-red-400/70 bg-transparent px-4 py-3 text-sm text-red-300">
@@ -317,7 +505,6 @@ function Profile() {
                                                 : 'border-white/70 hover:border-[var(--color-accent)]'
                                         }`}
                                     >
-                                        {/* Playlist header */}
                                         <div
                                             role="button"
                                             tabIndex={0}
@@ -332,6 +519,7 @@ function Profile() {
                                                     event.key === ' '
                                                 ) {
                                                     event.preventDefault()
+
                                                     handlePlaylistClick(
                                                         playlist.id
                                                     )
@@ -379,6 +567,7 @@ function Profile() {
                                                         type="button"
                                                         onClick={(event) => {
                                                             event.stopPropagation()
+
                                                             handleDeletePlaylist(
                                                                 playlist.id
                                                             )
@@ -396,7 +585,6 @@ function Profile() {
                                             </div>
                                         </div>
 
-                                        {/* Tracks */}
                                         {isExpanded && (
                                             <div className="border-t border-white/20">
                                                 {tracksLoading ? (
@@ -422,45 +610,158 @@ function Profile() {
                                                             (
                                                                 track,
                                                                 index
-                                                            ) => (
-                                                                <div
-                                                                    key={
+                                                            ) => {
+                                                                const isPlaying =
+                                                                    isTrackPlaying(
                                                                         track.id
-                                                                    }
-                                                                    className="flex items-center gap-4 px-5 py-4 transition hover:bg-white/[0.03]"
-                                                                >
-                                                                    <span className="w-6 shrink-0 text-sm text-white/30">
-                                                                        {String(
-                                                                            index +
-                                                                                1
-                                                                        ).padStart(
-                                                                            2,
-                                                                            '0'
+                                                                    )
+
+                                                                const isLoading =
+                                                                    audioLoading ===
+                                                                    track.id
+
+                                                                const isDownloading =
+                                                                    downloadLoading ===
+                                                                    track.id
+
+                                                                const progress =
+                                                                    getProgressPercentage(
+                                                                        track.id
+                                                                    )
+
+                                                                return (
+                                                                    <div
+                                                                        key={
+                                                                            track.id
+                                                                        }
+                                                                        className="px-4 py-3 transition hover:bg-white/[0.03] sm:px-5"
+                                                                    >
+                                                                        <div className="flex items-center gap-3 sm:gap-4">
+                                                                            <span className="w-6 shrink-0 text-sm text-white/30">
+                                                                                {String(
+                                                                                    index +
+                                                                                        1
+                                                                                ).padStart(
+                                                                                    2,
+                                                                                    '0'
+                                                                                )}
+                                                                            </span>
+
+                                                                            <div className="flex h-10 w-10 shrink-0 items-center justify-center border border-white/20">
+                                                                                <Music
+                                                                                    size={
+                                                                                        17
+                                                                                    }
+                                                                                    className="text-white/60"
+                                                                                />
+                                                                            </div>
+
+                                                                            <div className="min-w-0 flex-1">
+                                                                                <p className="truncate text-sm font-medium">
+                                                                                    {track.title ||
+                                                                                        'Без названия'}
+                                                                                </p>
+
+                                                                                <p className="mt-1 text-xs uppercase tracking-[0.1em] text-white/30">
+                                                                                    {track.source ||
+                                                                                        'unknown'}
+                                                                                </p>
+                                                                            </div>
+
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() =>
+                                                                                    handlePlayTrack(
+                                                                                        track
+                                                                                    )
+                                                                                }
+                                                                                disabled={
+                                                                                    isLoading
+                                                                                }
+                                                                                className="flex h-10 w-10 shrink-0 items-center justify-center border-0 bg-transparent p-0 text-[var(--color-accent)] transition hover:scale-110 disabled:cursor-wait disabled:opacity-50"
+                                                                                aria-label={
+                                                                                    isLoading
+                                                                                        ? 'Загрузка'
+                                                                                        : isPlaying
+                                                                                            ? 'Пауза'
+                                                                                            : 'Воспроизвести'
+                                                                                }
+                                                                            >
+                                                                                {isLoading ? (
+                                                                                    <span className="text-xs">
+                                                                                        ...
+                                                                                    </span>
+                                                                                ) : isPlaying ? (
+                                                                                    <Pause
+                                                                                        size={21}
+                                                                                        fill="currentColor"
+                                                                                        strokeWidth={2.5}
+                                                                                    />
+                                                                                ) : (
+                                                                                    <Play
+                                                                                        size={22}
+                                                                                        fill="currentColor"
+                                                                                        strokeWidth={2.5}
+                                                                                    />
+                                                                                )}
+                                                                            </button>
+
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() =>
+                                                                                    handleDownloadTrack(
+                                                                                        track
+                                                                                    )
+                                                                                }
+                                                                                disabled={
+                                                                                    isDownloading
+                                                                                }
+                                                                                className="flex h-10 w-10 shrink-0 items-center justify-center border-0 bg-transparent p-0 text-[var(--color-accent)] transition hover:scale-110 disabled:cursor-wait disabled:opacity-50"
+                                                                                aria-label="Скачать"
+                                                                            >
+                                                                                {isDownloading ? (
+                                                                                    <span className="text-xs">
+                                                                                        ...
+                                                                                    </span>
+                                                                                ) : (
+                                                                                    <Download
+                                                                                        size={21}
+                                                                                        strokeWidth={2.2}
+                                                                                    />
+                                                                                )}
+                                                                            </button>
+                                                                        </div>
+
+                                                                        {isPlaying && (
+                                                                            <div className="mt-3 ml-[94px] flex items-center gap-3 sm:ml-[96px]">
+                                                                                <div
+                                                                                    onClick={
+                                                                                        handleProgressClick
+                                                                                    }
+                                                                                    className="h-[3px] min-w-0 flex-1 cursor-pointer bg-white/15"
+                                                                                >
+                                                                                    <div
+                                                                                        className="h-full bg-[var(--color-accent)] transition-[width] duration-100"
+                                                                                        style={{
+                                                                                            width: `${progress}%`,
+                                                                                        }}
+                                                                                    />
+                                                                                </div>
+
+                                                                                <div className="shrink-0 text-xs font-medium tabular-nums text-[var(--color-accent)]">
+                                                                                    {formatTime(
+                                                                                        currentTime
+                                                                                    )}{' '}
+                                                                                    /{' '}
+                                                                                    {formatTime(
+                                                                                        duration
+                                                                                    )}
+                                                                                </div>
+                                                                            </div>
                                                                         )}
-                                                                    </span>
-
-                                                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center border border-white/20">
-                                                                        <Music
-                                                                            size={
-                                                                                17
-                                                                            }
-                                                                            className="text-white/60"
-                                                                        />
                                                                     </div>
-
-                                                                    <div className="min-w-0 flex-1">
-                                                                        <p className="truncate text-sm font-medium">
-                                                                            {track.title ||
-                                                                                'Без названия'}
-                                                                        </p>
-
-                                                                        <p className="mt-1 text-xs uppercase tracking-[0.1em] text-white/30">
-                                                                            {track.source ||
-                                                                                'unknown'}
-                                                                        </p>
-                                                                    </div>
-                                                                </div>
-                                                            )
+                                                                )
+                                                            }
                                                         )}
                                                     </div>
                                                 )}
@@ -474,7 +775,6 @@ function Profile() {
                 </section>
             </div>
 
-            {/* Create playlist modal */}
             {showCreateModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
                     <div className="w-full max-w-md border border-white/70 bg-[var(--color-bg)] p-6">
