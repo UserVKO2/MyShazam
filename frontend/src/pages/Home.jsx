@@ -88,7 +88,6 @@ function Home() {
             )
 
             const fileUrl = window.URL.createObjectURL(blob)
-
             const link = document.createElement('a')
 
             link.href = fileUrl
@@ -125,59 +124,59 @@ function Home() {
     }
 
     return (
-        <main style={styles.page}>
-            {/* Навигация */}
-            <nav style={styles.nav}>
-                <Link to="/" style={styles.navLink}>
+        <main className="min-h-screen w-full bg-[var(--color-bg)] px-4 py-5 text-[var(--color-text)] sm:px-5">
+            <nav className="mx-auto mb-10 flex w-full max-w-[820px] items-center gap-4 sm:mb-12 sm:gap-5">
+                <Link
+                    to="/"
+                    className="text-sm text-[var(--color-text-muted)] no-underline transition-colors hover:text-[var(--color-text)]"
+                >
                     Главная
                 </Link>
 
-                <Link to="/register" style={styles.navLink}>
+                <Link
+                    to="/register"
+                    className="text-sm text-[var(--color-text-muted)] no-underline transition-colors hover:text-[var(--color-text)]"
+                >
                     Регистрация
                 </Link>
 
                 <button
                     type="button"
                     onClick={handleLogout}
-                    style={styles.logoutButton}
+                    className="ml-auto h-[34px] rounded-lg border border-white bg-transparent px-3.5 text-[13px] text-white transition-colors hover:border-[var(--color-accent)]"
                 >
                     Выйти
                 </button>
             </nav>
 
-            <section style={styles.container}>
-
-                {/* Заголовок */}
-                <header style={styles.header}>
-                    <h1 style={styles.title}>
+            <section className="mx-auto w-full max-w-[820px]">
+                <header className="mb-7 sm:mb-[30px]">
+                    <h1 className="m-0 text-[36px] leading-[1.1] tracking-[-1px] sm:text-[42px]">
                         Shazam
                     </h1>
 
-                    <p style={styles.subtitle}>
+                    <p className="mt-2.5 text-sm text-[var(--color-text-muted)] sm:text-[15px]">
                         Скачивайте музыку с YouTube и TikTok
                     </p>
                 </header>
 
-                {/* Скачать */}
-                <section style={styles.downloadBox}>
-                    <h2 style={styles.sectionTitle}>
+                <section className="w-full rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 sm:p-6">
+                    <h2 className="mb-[18px] text-lg font-semibold">
                         Скачать музыку
                     </h2>
 
-                    {/* Переключатель источника */}
-                    <div style={styles.sourceSelector}>
+                    <div className="mb-4 flex gap-2">
                         <button
                             type="button"
                             onClick={() => {
                                 setSource('youtube')
                                 setError(null)
                             }}
-                            style={{
-                                ...styles.sourceButton,
-                                ...(source === 'youtube'
-                                    ? styles.sourceButtonActive
-                                    : {}),
-                            }}
+                            className={`h-10 rounded-[9px] border px-[18px] text-[13px] font-medium transition-colors ${
+                                source === 'youtube'
+                                    ? 'border-white bg-white text-black'
+                                    : 'border-white bg-transparent text-[var(--color-text-muted)] hover:border-[var(--color-accent)]'
+                            }`}
                         >
                             YouTube
                         </button>
@@ -188,19 +187,17 @@ function Home() {
                                 setSource('tiktok')
                                 setError(null)
                             }}
-                            style={{
-                                ...styles.sourceButton,
-                                ...(source === 'tiktok'
-                                    ? styles.sourceButtonActive
-                                    : {}),
-                            }}
+                            className={`h-10 rounded-[9px] border px-[18px] text-[13px] font-medium transition-colors ${
+                                source === 'tiktok'
+                                    ? 'border-white bg-white text-black'
+                                    : 'border-white bg-transparent text-[var(--color-text-muted)] hover:border-[var(--color-accent)]'
+                            }`}
                         >
                             TikTok
                         </button>
                     </div>
 
-                    {/* Input + кнопка */}
-                    <div style={styles.inputRow}>
+                    <div className="flex w-full flex-col items-stretch gap-2.5 sm:flex-row sm:items-center">
                         <input
                             type="url"
                             value={url}
@@ -219,45 +216,38 @@ function Home() {
                                     : 'Вставьте ссылку на TikTok'
                             }
                             disabled={loading}
-                            style={styles.input}
+                            className="h-[50px] min-w-0 flex-1 rounded-[10px] border border-[var(--color-border)] bg-[var(--color-bg)] px-4 text-sm text-white outline-none transition-colors placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-accent)] disabled:opacity-50"
                         />
 
                         <button
                             type="button"
                             onClick={handleDownload}
                             disabled={loading}
-                            style={{
-                                ...styles.downloadButton,
-                                ...(loading
-                                    ? styles.downloadButtonDisabled
-                                    : {}),
-                            }}
+                            className="h-[50px] w-full shrink-0 rounded-[10px] border border-white bg-transparent px-[22px] text-sm font-semibold text-white transition-colors hover:border-[var(--color-accent)] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
                         >
                             {loading ? '...' : 'Скачать'}
                         </button>
                     </div>
                 </section>
 
-                {/* Ошибка */}
                 {error && (
-                    <p style={styles.error}>
+                    <p className="mx-1 my-3.5 text-sm text-[var(--color-error)]">
                         {error}
                     </p>
                 )}
 
-                {/* Результат */}
                 {download && (
-                    <section style={styles.resultBox}>
-                        <div style={styles.resultInfo}>
-                            <span style={styles.resultLabel}>
+                    <section className="mt-[18px] flex w-full flex-col items-stretch justify-between gap-5 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 sm:flex-row sm:items-center sm:p-5">
+                        <div className="min-w-0">
+                            <span className="mb-1.5 block text-xs text-[var(--color-text-muted)]">
                                 Готово
                             </span>
 
-                            <h2 style={styles.resultTitle}>
+                            <h2 className="m-0 break-words text-[17px] font-semibold">
                                 {download.title}
                             </h2>
 
-                            <p style={styles.resultSource}>
+                            <p className="mt-[7px] text-[13px] text-[var(--color-text-muted)]">
                                 Источник: {download.source}
                             </p>
                         </div>
@@ -266,7 +256,7 @@ function Home() {
                             type="button"
                             onClick={handleFileDownload}
                             disabled={fileLoading}
-                            style={styles.fileButton}
+                            className="h-[42px] w-full shrink-0 rounded-[9px] border border-white bg-transparent px-4 text-[13px] font-medium text-white transition-colors hover:border-[var(--color-accent)] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
                         >
                             {fileLoading
                                 ? 'Получение...'
@@ -275,14 +265,13 @@ function Home() {
                     </section>
                 )}
 
-                {/* Пользователь */}
                 {user && (
-                    <section style={styles.userBox}>
-                        <h2 style={styles.sectionTitle}>
+                    <section className="mt-[18px] w-full rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 sm:p-5">
+                        <h2 className="mb-[18px] text-lg font-semibold">
                             Пользователь
                         </h2>
 
-                        <div style={styles.userInfo}>
+                        <div className="text-sm leading-[1.6] text-[var(--color-text-muted)]">
                             <p>ID: {user.id}</p>
                             <p>Имя: {user.name}</p>
                             <p>Email: {user.email}</p>
@@ -290,238 +279,14 @@ function Home() {
                     </section>
                 )}
 
-                {/* Статус */}
                 {health && (
-                    <p style={styles.status}>
+                    <p className="mt-6 text-center text-xs text-[#626975]">
                         Backend: {health.status} · {health.service}
                     </p>
                 )}
             </section>
         </main>
     )
-}
-
-const styles = {
-    page: {
-        minHeight: '100vh',
-        width: '100%',
-        boxSizing: 'border-box',
-        background: '#0b0d10',
-        color: '#ffffff',
-        padding: '20px',
-        fontFamily:
-            '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-    },
-
-    nav: {
-        width: '100%',
-        maxWidth: '820px',
-        margin: '0 auto 50px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '20px',
-    },
-
-    navLink: {
-        color: '#9ca3af',
-        textDecoration: 'none',
-        fontSize: '14px',
-    },
-
-    logoutButton: {
-        marginLeft: 'auto',
-        height: '34px',
-        padding: '0 14px',
-        border: '1px solid #30353e',
-        borderRadius: '8px',
-        background: '#171a20',
-        color: '#ffffff',
-        fontSize: '13px',
-        cursor: 'pointer',
-    },
-
-    container: {
-        width: '100%',
-        maxWidth: '820px',
-        margin: '0 auto',
-    },
-
-    header: {
-        marginBottom: '30px',
-    },
-
-    title: {
-        margin: 0,
-        fontSize: '42px',
-        lineHeight: 1.1,
-        letterSpacing: '-1px',
-    },
-
-    subtitle: {
-        margin: '10px 0 0',
-        color: '#8b929d',
-        fontSize: '15px',
-    },
-
-    downloadBox: {
-        width: '100%',
-        boxSizing: 'border-box',
-        padding: '24px',
-        background: '#15181d',
-        border: '1px solid #292e36',
-        borderRadius: '16px',
-    },
-
-    sectionTitle: {
-        margin: '0 0 18px',
-        fontSize: '18px',
-        fontWeight: '600',
-    },
-
-    sourceSelector: {
-        display: 'flex',
-        gap: '8px',
-        marginBottom: '16px',
-    },
-
-    sourceButton: {
-        height: '40px',
-        padding: '0 18px',
-        border: '1px solid #30353e',
-        borderRadius: '9px',
-        background: '#101216',
-        color: '#8b929d',
-        fontSize: '13px',
-        fontWeight: '500',
-        cursor: 'pointer',
-        transition: 'all 0.15s ease',
-    },
-
-    sourceButtonActive: {
-        background: '#ffffff',
-        color: '#111111',
-        border: '1px solid #ffffff',
-        fontWeight: '600',
-    },
-
-    inputRow: {
-        display: 'flex',
-        width: '100%',
-        gap: '10px',
-        alignItems: 'center',
-    },
-
-    input: {
-        flex: 1,
-        minWidth: 0,
-        height: '50px',
-        boxSizing: 'border-box',
-        padding: '0 16px',
-        borderRadius: '10px',
-        border: '1px solid #343a44',
-        background: '#0c0e12',
-        color: '#ffffff',
-        outline: 'none',
-        fontSize: '14px',
-    },
-
-    downloadButton: {
-        flexShrink: 0,
-        height: '50px',
-        padding: '0 22px',
-        border: 'none',
-        borderRadius: '10px',
-        background: '#ffffff',
-        color: '#111111',
-        fontSize: '14px',
-        fontWeight: '600',
-        cursor: 'pointer',
-    },
-
-    downloadButtonDisabled: {
-        opacity: 0.5,
-        cursor: 'not-allowed',
-    },
-
-    error: {
-        margin: '14px 4px',
-        color: '#ff6b6b',
-        fontSize: '14px',
-    },
-
-    resultBox: {
-        width: '100%',
-        boxSizing: 'border-box',
-        marginTop: '18px',
-        padding: '20px',
-        background: '#15181d',
-        border: '1px solid #292e36',
-        borderRadius: '16px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: '20px',
-    },
-
-    resultInfo: {
-        minWidth: 0,
-    },
-
-    resultLabel: {
-        display: 'block',
-        marginBottom: '6px',
-        color: '#8b929d',
-        fontSize: '12px',
-    },
-
-    resultTitle: {
-        margin: 0,
-        fontSize: '17px',
-        fontWeight: '600',
-        wordBreak: 'break-word',
-    },
-
-    resultSource: {
-        margin: '7px 0 0',
-        color: '#8b929d',
-        fontSize: '13px',
-    },
-
-    fileButton: {
-        flexShrink: 0,
-        height: '42px',
-        padding: '0 16px',
-        border: '1px solid #343a44',
-        borderRadius: '9px',
-        background: '#20242b',
-        color: '#ffffff',
-        fontSize: '13px',
-        fontWeight: '500',
-        cursor: 'pointer',
-    },
-
-    userBox: {
-        width: '100%',
-        boxSizing: 'border-box',
-        marginTop: '18px',
-        padding: '20px',
-        background: '#15181d',
-        border: '1px solid #292e36',
-        borderRadius: '16px',
-    },
-
-    userInfo: {
-        color: '#9ca3af',
-        fontSize: '14px',
-        lineHeight: 1.6,
-    },
-
-    status: {
-        marginTop: '24px',
-        color: '#626975',
-        fontSize: '12px',
-        textAlign: 'center',
-    },
 }
 
 export default Home
