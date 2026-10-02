@@ -1,131 +1,156 @@
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import api from "../services/api";
 
-function Login() {
-  const navigate = useNavigate()
-  const { login } = useAuth()
+export default function Login() {
+    const navigate = useNavigate();
 
-  const [form, setForm] = useState({
-    email: '',
-    password: '',
-  })
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
 
-  const [message, setMessage] = useState('')
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState("");
 
-  function handleChange(event) {
-    const { name, value } = event.target
+    const handleLogin = async (event) => {
+        event.preventDefault();
 
-    setForm({
-      ...form,
-      [name]: value,
-    })
-  }
+        setLoading(true);
+        setError("");
 
-  async function handleSubmit(event) {
-    event.preventDefault()
+        try {
+            const response = await api.post("/login", {
+                email,
+                password,
+            });
 
-    setMessage('Вход...')
+            if (response.data.token) {
+                localStorage.setItem(
+                    "token",
+                    response.data.token,
+                );
+            }
 
-    try {
-      const response = await fetch('http://localhost:8000/api/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify(form),
-      })
+            navigate("/");
+        } catch (err) {
+            setError(
+                err?.response?.data?.message ||
+                    "Неверный email или пароль",
+            );
+        } finally {
+            setLoading(false);
+        }
+    };
 
-      const data = await response.json()
+    return (
+        <div className="min-h-screen bg-[var(--color-bg)] text-white">
+            <main className="flex min-h-screen items-center justify-center px-4 py-8">
+                <section className="w-full max-w-[430px]">
+                    <div className="mb-8 text-center">
+                        <Link
+                            to="/"
+                            className="text-3xl font-bold tracking-wide text-white no-underline"
+                        >
+                            Tynda.kz
+                        </Link>
 
-      console.log('HTTP status:', response.status)
-      console.log('API response:', data)
+                        <p className="mt-3 text-sm text-[var(--color-text-muted)]">
+                            Login to your account
+                        </p>
+                    </div>
 
-      if (!response.ok) {
-        setMessage(data.message || 'Ошибка входа')
-        return
-      }
+                    <div className="border border-[var(--color-border)] bg-[var(--color-surface)] p-5 sm:p-7">
+                        <h1 className="m-0 text-2xl font-bold text-white">
+                            Login
+                        </h1>
 
-      await login(data.token, data.user)
+                        <p className="mt-2 text-sm text-[var(--color-text-muted)]">
+                            Enter your account details
+                        </p>
 
-      setMessage('Вход выполнен успешно')
+                        <form
+                            onSubmit={handleLogin}
+                            className="mt-6"
+                        >
+                            <div className="mb-4">
+                                <label
+                                    htmlFor="email"
+                                    className="mb-2 block text-sm text-white"
+                                >
+                                    Email
+                                </label>
 
-      navigate('/')
-    } catch (error) {
-      console.error('Request error:', error)
-      setMessage('Не удалось подключиться к серверу')
-    }
-  }
+                                <input
+                                    id="email"
+                                    type="email"
+                                    value={email}
+                                    onChange={(event) =>
+                                        setEmail(
+                                            event.target.value,
+                                        )
+                                    }
+                                    placeholder="Enter your email"
+                                    autoComplete="email"
+                                    required
+                                    className="box-border h-[50px] min-h-[50px] w-full rounded-none border border-white bg-transparent px-4 text-sm leading-normal text-white outline-none transition-colors placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-accent)]"
+                                />
+                            </div>
 
-  return (
-    <main className="auth-page">
-      <div className="auth-card">
+                            <div className="mb-4">
+                                <label
+                                    htmlFor="password"
+                                    className="mb-2 block text-sm text-white"
+                                >
+                                    Password
+                                </label>
 
-        <h1>Вход</h1>
+                                <input
+                                    id="password"
+                                    type="password"
+                                    value={password}
+                                    onChange={(event) =>
+                                        setPassword(
+                                            event.target.value,
+                                        )
+                                    }
+                                    placeholder="Enter your password"
+                                    autoComplete="current-password"
+                                    required
+                                    className="box-border h-[50px] min-h-[50px] w-full rounded-none border border-white bg-transparent px-4 text-sm leading-normal text-white outline-none transition-colors placeholder:text-[var(--color-text-muted)] focus:border-[var(--color-accent)]"
+                                />
+                            </div>
 
-        {/* Ссылка на главную */}
-        <Link to="/">
-          Главная
-        </Link>
+                            {error && (
+                                <div className="mb-4 border border-[#ff6b6b] bg-transparent p-3 text-sm text-[#ff6b6b]">
+                                    {error}
+                                </div>
+                            )}
 
-        <form onSubmit={handleSubmit}>
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className="box-border h-[50px] min-h-[50px] w-full rounded-none border border-white bg-transparent px-5 text-sm font-semibold leading-none text-white transition-colors hover:border-[var(--color-accent)] disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                {loading
+                                    ? "Logging in..."
+                                    : "Login"}
+                            </button>
+                        </form>
 
-          <div className="form-group">
-            <label htmlFor="email">
-              Email
-            </label>
+                        <div className="mt-6 border-t border-[var(--color-border)] pt-5 text-center">
+                            <p className="m-0 text-sm text-[var(--color-text-muted)]">
+                                Don't have an account?
+                            </p>
 
-            <input
-              id="email"
-              type="email"
-              name="email"
-              value={form.email}
-              onChange={handleChange}
-              placeholder="Введите email"
-              required
-            />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="password">
-              Пароль
-            </label>
-
-            <input
-              id="password"
-              type="password"
-              name="password"
-              value={form.password}
-              onChange={handleChange}
-              placeholder="Введите пароль"
-              required
-            />
-          </div>
-
-          <button type="submit">
-            Войти
-          </button>
-
-        </form>
-
-        {message && (
-          <p>
-            {message}
-          </p>
-        )}
-
-        {/* Переход на регистрацию */}
-        <p>
-          Нет аккаунта?{' '}
-          <Link to="/register">
-            Зарегистрироваться
-          </Link>
-        </p>
-
-      </div>
-    </main>
-  )
+                            <Link
+                                to="/register"
+                                className="mt-2 inline-block text-sm text-white no-underline transition-colors hover:text-[var(--color-accent)]"
+                            >
+                                Create account
+                            </Link>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    );
 }
-
-export default Login
