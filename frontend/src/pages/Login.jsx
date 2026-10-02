@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 function Login() {
@@ -61,11 +61,20 @@ function Login() {
   return (
     <main className="auth-page">
       <div className="auth-card">
+
         <h1>Вход</h1>
 
+        {/* Ссылка на главную */}
+        <Link to="/">
+          Главная
+        </Link>
+
         <form onSubmit={handleSubmit}>
+
           <div className="form-group">
-            <label htmlFor="email">Email</label>
+            <label htmlFor="email">
+              Email
+            </label>
 
             <input
               id="email"
@@ -79,7 +88,9 @@ function Login() {
           </div>
 
           <div className="form-group">
-            <label htmlFor="password">Пароль</label>
+            <label htmlFor="password">
+              Пароль
+            </label>
 
             <input
               id="password"
@@ -95,9 +106,23 @@ function Login() {
           <button type="submit">
             Войти
           </button>
+
         </form>
 
-        {message && <p>{message}</p>}
+        {message && (
+          <p>
+            {message}
+          </p>
+        )}
+
+        {/* Переход на регистрацию */}
+        <p>
+          Нет аккаунта?{' '}
+          <Link to="/register">
+            Зарегистрироваться
+          </Link>
+        </p>
+
       </div>
     </main>
   )

@@ -1,6 +1,9 @@
 import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 
 function Register() {
+  const navigate = useNavigate()
+
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -71,6 +74,14 @@ function Register() {
         password: '',
         password_confirmation: '',
       })
+
+      /*
+       * После успешной регистрации
+       * предлагаем пользователю войти.
+       */
+      setTimeout(() => {
+        navigate('/login')
+      }, 1000)
     } catch (error) {
       console.error('Request error:', error)
       setMessage('Не удалось подключиться к серверу')
@@ -80,11 +91,20 @@ function Register() {
   return (
     <main className="auth-page">
       <div className="auth-card">
+
         <h1>Регистрация</h1>
 
+        {/* Ссылка на главную */}
+        <Link to="/">
+          Главная
+        </Link>
+
         <form onSubmit={handleSubmit}>
+
           <div className="form-group">
-            <label htmlFor="name">Имя</label>
+            <label htmlFor="name">
+              Имя
+            </label>
 
             <input
               id="name"
@@ -98,7 +118,9 @@ function Register() {
           </div>
 
           <div className="form-group">
-            <label htmlFor="email">Email</label>
+            <label htmlFor="email">
+              Email
+            </label>
 
             <input
               id="email"
@@ -112,7 +134,9 @@ function Register() {
           </div>
 
           <div className="form-group">
-            <label htmlFor="password">Пароль</label>
+            <label htmlFor="password">
+              Пароль
+            </label>
 
             <input
               id="password"
@@ -144,17 +168,33 @@ function Register() {
           <button type="submit">
             Зарегистрироваться
           </button>
+
         </form>
 
-        {message && <p>{message}</p>}
+        {message && (
+          <p>
+            {message}
+          </p>
+        )}
 
         {Object.entries(errors).map(([field, messages]) => (
           <div key={field}>
             {messages.map((errorMessage) => (
-              <p key={errorMessage}>{errorMessage}</p>
+              <p key={errorMessage}>
+                {errorMessage}
+              </p>
             ))}
           </div>
         ))}
+
+        {/* Переход на авторизацию */}
+        <p>
+          Уже есть аккаунт?{' '}
+          <Link to="/login">
+            Войти
+          </Link>
+        </p>
+
       </div>
     </main>
   )
