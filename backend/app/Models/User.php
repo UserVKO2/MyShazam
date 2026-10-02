@@ -8,6 +8,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use App\Models\Download;
+use App\Models\Playlist;
 
 class User extends Authenticatable
 {
@@ -47,5 +48,13 @@ class User extends Authenticatable
     public function downloads(): HasMany
     {
         return $this->hasMany(Download::class);
+    }
+
+    /**
+     * Все плейлисты пользователя.
+     */
+    public function playlists(): HasMany
+    {
+        return $this->hasMany(Playlist::class);
     }
 }

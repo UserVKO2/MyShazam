@@ -7,35 +7,16 @@ use App\Http\Controllers\HealthController;
 use App\Http\Controllers\ShazamController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DownloadController;
-
-/*
-|--------------------------------------------------------------------------
-| Пользователь
-|--------------------------------------------------------------------------
-*/
+use App\Http\Controllers\PlaylistController;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
 
-
-/*
-|--------------------------------------------------------------------------
-| Health Check
-|--------------------------------------------------------------------------
-*/
-
 Route::get('/health', [
     HealthController::class,
     'check',
 ]);
-
-
-/*
-|--------------------------------------------------------------------------
-| Аутентификация
-|--------------------------------------------------------------------------
-*/
 
 Route::post('/register', [
     AuthController::class,
@@ -52,47 +33,60 @@ Route::post('/logout', [
     'logout',
 ])->middleware('auth:sanctum');
 
-
-/*
-|--------------------------------------------------------------------------
-| Shazam
-|--------------------------------------------------------------------------
-*/
-
 Route::post('/shazam/recognize', [
     ShazamController::class,
     'recognize',
 ])->middleware('auth:sanctum');
 
-
-/*
-|--------------------------------------------------------------------------
-| Музыкальная библиотека
-|--------------------------------------------------------------------------
-*/
-
-/*
- * Скачать песню.
- */
 Route::post('/download', [
     DownloadController::class,
     'store',
 ])->middleware('auth:sanctum');
 
-
-/*
- * Получить музыкальную библиотеку пользователя.
- */
 Route::get('/downloads', [
     DownloadController::class,
     'index',
 ])->middleware('auth:sanctum');
 
-
-/*
- * Получить MP3-файл.
- */
 Route::get('/downloads/{download}/file', [
     DownloadController::class,
     'file',
 ])->middleware('auth:sanctum');
+
+/*
+|--------------------------------------------------------------------------
+| Playlists
+|--------------------------------------------------------------------------
+*/
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/playlists', [
+        PlaylistController::class,
+        'index',
+    ]);
+
+    Route::post('/playlists', [
+        PlaylistController::class,
+        'store',
+    ]);
+
+    Route::get('/playlists/{playlist}', [
+        PlaylistController::class,
+        'show',
+    ]);
+
+    Route::delete('/playlists/{playlist}', [
+        PlaylistController::class,
+        'destroy',
+    ]);
+
+    Route::post('/playlists/{playlist}/tracks', [
+        PlaylistController::class,
+        'addTrack',
+    ]);
+
+    Route::delete('/playlists/{playlist}/tracks/{download}', [
+        PlaylistController::class,
+        'removeTrack',
+    ]);
+});
