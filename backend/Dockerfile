@@ -32,4 +32,4 @@ RUN php artisan config:clear
 
 EXPOSE 10000
 
-CMD ["sh", "-c", "frankenphp php-server --listen :${PORT:-10000} --root public"]
+CMD ["sh", "-c", "php artisan migrate --force && frankenphp php-server --listen :${PORT:-10000} --root public"]
