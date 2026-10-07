@@ -1,4 +1,6 @@
 from pathlib import Path
+from urllib.parse import urlparse
+from urllib.request import Request, urlopen
 
 import yt_dlp
 
@@ -6,35 +8,36 @@ from sources.base import SourceAdapter
 
 
 class TikTokAdapter(SourceAdapter):
-    """Adapter для скачивания аудио с TikTok."""
+    """Адаптер для скачивания аудио с TikTok."""
+
+    ERROR_MESSAGE = (
+        "Не удалось получить аудио по этой ссылке. "
+        "Попробуйте другую ссылку TikTok."
+    )
+
+    OUTPUT_DIR = Path("/tmp/shazam-audio")
 
     def download_audio(self, url: str) -> str:
         """Скачать аудио с TikTok и сохранить его в формате MP3."""
 
-        # Директория для временных аудиофайлов.
-        output_dir = Path("/tmp/shazam-audio")
-        output_dir.mkdir(parents=True, exist_ok=True)
+        self.OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-        # Шаблон имени файла.
-        # %(id)s — ID видео TikTok.
-        # %(ext)s — текущее расширение скачанного файла.
-        output_template = str(output_dir / "%(id)s.%(ext)s")
+        normalized_url = self._normalize_url(url)
 
-        # Настройки yt-dlp.
+        output_template = str(
+            self.OUTPUT_DIR / "%(id)s.%(ext)s"
+        )
+
         options = {
-            # Выбираем лучшее доступное аудио.
-            "format": "bestaudio",
+            # Для обычных видео и Photo Post.
+            "format": "bestaudio/best",
 
-            # Куда сохранить скачанный файл.
             "outtmpl": output_template,
 
-            # Не показываем лишний вывод в нашем API.
             "quiet": True,
 
-            # Не скачиваем плейлист.
             "noplaylist": True,
 
-            # После скачивания конвертируем аудио в MP3.
             "postprocessors": [
                 {
                     "key": "FFmpegExtractAudio",
@@ -44,27 +47,92 @@ class TikTokAdapter(SourceAdapter):
             ],
         }
 
-        # Создаём экземпляр yt-dlp с указанными настройками.
-        with yt_dlp.YoutubeDL(options) as ydl:
-            # Используем download(), потому что именно этот способ
-            # успешно работает с TikTok в нашем Python API-тесте.
-            ydl.download([url])
+        try:
+            with yt_dlp.YoutubeDL(options) as ydl:
+                info = ydl.extract_info(
+                    normalized_url,
+                    download=True,
+                )
 
-        # Получаем ID видео из URL через отдельный запрос метаданных.
-        with yt_dlp.YoutubeDL({"quiet": True}) as ydl:
-            info = ydl.extract_info(url, download=False)
+        except Exception as error:
+            raise RuntimeError(self.ERROR_MESSAGE) from error
 
-        # Получаем ID видео TikTok.
-        video_id = info["id"]
+        if not info:
+            raise RuntimeError(self.ERROR_MESSAGE)
 
-        # После FFmpeg итоговый файл имеет расширение .mp3.
-        mp3_path = output_dir / f"{video_id}.mp3"
+        video_id = info.get("id")
 
-        # Проверяем, что файл действительно создан.
+        if not video_id:
+            raise RuntimeError(self.ERROR_MESSAGE)
+
+        mp3_path = self.OUTPUT_DIR / f"{video_id}.mp3"
+
         if not mp3_path.exists():
-            raise FileNotFoundError(
-                f"MP3 файл не найден после скачивания: {mp3_path}"
-            )
+            raise RuntimeError(self.ERROR_MESSAGE)
 
-        # Возвращаем путь к готовому MP3-файлу.
         return str(mp3_path)
+
+    def _normalize_url(self, url: str) -> str:
+        """
+        Подготовить TikTok URL к скачиванию.
+
+        TikTok Photo Post имеет вид:
+
+            /@user/photo/123456789
+
+        yt-dlp сейчас не умеет напрямую извлекать такие URL.
+        Рабочий обходной путь — использовать тот же ID через:
+
+            /@user/video/123456789
+        """
+
+        resolved_url = self._resolve_redirect(url)
+
+        parsed = urlparse(resolved_url)
+
+        if "/photo/" not in parsed.path:
+            return resolved_url
+
+        normalized_path = parsed.path.replace(
+            "/photo/",
+            "/video/",
+            1,
+        )
+
+        return parsed._replace(
+            path=normalized_path,
+            query="",
+            fragment="",
+        ).geturl()
+
+    def _resolve_redirect(self, url: str) -> str:
+        """
+        Разрешить короткие TikTok ссылки вроде vt.tiktok.com.
+        """
+
+        parsed = urlparse(url)
+
+        if parsed.netloc not in {
+            "vt.tiktok.com",
+            "vm.tiktok.com",
+        }:
+            return url
+
+        request = Request(
+            url,
+            headers={
+                "User-Agent": (
+                    "Mozilla/5.0 (Linux; Android 15) "
+                    "AppleWebKit/537.36 "
+                    "(KHTML, like Gecko) "
+                    "Chrome/140.0 Mobile Safari/537.36"
+                )
+            },
+        )
+
+        try:
+            with urlopen(request, timeout=15) as response:
+                return response.geturl()
+
+        except Exception as error:
+            raise RuntimeError(self.ERROR_MESSAGE) from error
